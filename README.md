@@ -79,6 +79,12 @@ app/src/main/
 ./gradlew assembleDebug          # 产出 app/build/outputs/apk/debug/app-debug.apk
 ```
 
+> **gradle wrapper 说明**:本仓库包含 `gradle-wrapper.properties`(Gradle 8.7),
+> 但 `gradle-wrapper.jar` 未随仓库提交(体积小但生成环境网络受限)。
+> 安装 Android Studio 后,新建一个空项目(Studio 会自动生成 wrapper),
+> 把它的 `gradle/wrapper/gradle-wrapper.jar`、`gradlew`、`gradlew.bat` 三个文件
+> 复制到本工程对应位置即可;或在本工程 Terminal 执行 `gradle wrapper --gradle-version 8.7`。
+
 安装到真机 → 首次发送消息会触发模型从 assets 拷贝到内部存储(约 400MB,耗时十几秒,
 Logcat 可见进度)→ 之后流式对话。
 
