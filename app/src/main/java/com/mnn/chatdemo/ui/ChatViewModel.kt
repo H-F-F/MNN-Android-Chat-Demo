@@ -58,8 +58,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                val configPath = ensureModel()
-                val handle = ensureLoaded(configPath)
+                val modelDir = ensureModel()
+                val handle = ensureLoaded(modelDir)
 
                 val assistantMessage = Message(id = ++messageId, role = Message.Role.ASSISTANT, content = "")
                 _uiState.update { it.copy(messages = it.messages + assistantMessage) }
@@ -94,7 +94,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 模型就绪:首次从 assets 拷贝到内部存储(IO 线程) */
+    /** 模型就绪:首次从 assets 拷贝到内部存储(IO 线程),返回模型目录绝对路径 */
     private suspend fun ensureModel(): String = withContext(Dispatchers.IO) {
         when (val result = ModelManager.ensureModel(getApplication())) {
             is Result.Success -> result.data
@@ -103,9 +103,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** 模型加载:仅首次真正调用 nativeLoadModel,之后复用句柄 */
-    private suspend fun ensureLoaded(configPath: String): Long {
+    private suspend fun ensureLoaded(modelDir: String): Long {
         if (modelLoaded) return modelHandle
-        val handle = withContext(Dispatchers.Default) { engine.nativeLoadModel(configPath) }
+        val handle = withContext(Dispatchers.Default) { engine.nativeLoadModel(modelDir) }
         if (handle == 0L) throw IllegalStateException("模型加载失败(native 返回空句柄)")
         modelHandle = handle
         modelLoaded = true

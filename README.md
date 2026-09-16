@@ -30,7 +30,7 @@
 
 ## 技术亮点(面试可以直接讲)
 
-1. **端侧 LLM 完整链路**:assets 模型目录 → 内部存储拷贝/校验 → `Llm::createLLM(config.json)`
+1. **端侧 LLM 完整链路**:assets 模型目录 → 内部存储拷贝/校验 → `Llm::createLLM(modelDir)`
    → 加载 → 流式生成 → 释放,验证 MNN LLM 在 Android arm64 上的完整工程链路;
 2. **JNI 桥接**:Kotlin `external` 方法 ↔ C++ `Java_com_mnn_chatdemo_inference_MnnEngine_nativeXxx`
    严格按 Android JNI 规范命名,逐 token 回调经 JNI 回传,`Dispatchers.Main` 更新 UI;
@@ -49,9 +49,10 @@ app/src/main/
 │   ├── model/       ModelManager(模型拷贝/校验)
 │   ├── data/        Message
 │   └── util/        Logger / Result / DispatcherProvider
-├── cpp/             CMakeLists.txt + mnn_inference.cpp/h + mnn/include/(MNN 头文件,自备)
-├── assets/models/   qwen2-0.5b-instruct/(模型目录,自备)
-└── jniLibs/         arm64-v8a/(libMNN.so + libllm.so,自备)
+├── cpp/             CMakeLists.txt + mnn_inference.cpp/h + llm_stream_buffer.hpp
+│                    + utf8_stream_processor.hpp + mnn/include/(MNN 头文件,已入库)
+├── assets/models/   qwen2-0.5b-instruct/(模型目录,自备,不入库)
+└── jniLibs/         arm64-v8a/libMNN.so(官方 MNNChat App 同款,已入库)
 ```
 
 ## 快速开始
@@ -64,26 +65,24 @@ app/src/main/
 
 ### 2. 依赖就位(三件套)
 
-| 依赖 | 放哪 | 说明 |
+| 依赖 | 放哪 | 状态 |
 |---|---|---|
-| MNN 头文件 | `cpp/mnn/include/` | 把 MNN 仓库 `include/` 内容拷入,见该目录 README |
-| MNN so | `jniLibs/arm64-v8a/` | `libMNN.so` + `libllm.so`(MNN 需 `-DMNN_BUILD_LLM=ON`),见该目录 README |
-| 模型目录 | `assets/models/qwen2-0.5b-instruct/` | llmexport 导出产物,见该目录 README |
+| MNN 头文件 | `cpp/mnn/include/`(`MNN/` 与 `llm/` 目录) | ✅ 已随仓库提交 |
+| MNN so | `jniLibs/arm64-v8a/libMNN.so` | ✅ 已随仓库提交(官方 MNNChat App 同款,LLM 内置) |
+| 模型目录 | `assets/models/qwen2-0.5b-instruct/` | ⬜ **需自行下载**(体积 ~400MB,不入库) |
 
-> 三处均为外部依赖,工程代码只做存在性校验与友好提示,不伪造占位实现。
-> CMake 会在缺 so 时报错;App 会在缺模型时 Snackbar 提示。
+> so 与头文件已就位:`libMNN.so` 取自官方 MNNChat App(引擎 3.5.x,`-DMNN_BUILD_LLM=ON`,
+> LLM 模块内置其中,无需 `libllm.so`),头文件取自 MNN 仓库 `include/` 与
+> `transformers/llm/engine/include/`。如需重新获取 so,运行
+> `powershell -ExecutionPolicy Bypass -File scripts\fetch_mnn_libs.ps1`。
+>
+> 模型缺失时 App 会 Snackbar 提示,不崩溃;CMake 缺 so 时会直接报错。
 
 ### 3. 构建运行
 
 ```bash
 ./gradlew assembleDebug          # 产出 app/build/outputs/apk/debug/app-debug.apk
 ```
-
-> **gradle wrapper 说明**:本仓库包含 `gradle-wrapper.properties`(Gradle 8.7),
-> 但 `gradle-wrapper.jar` 未随仓库提交(体积小但生成环境网络受限)。
-> 安装 Android Studio 后,新建一个空项目(Studio 会自动生成 wrapper),
-> 把它的 `gradle/wrapper/gradle-wrapper.jar`、`gradlew`、`gradlew.bat` 三个文件
-> 复制到本工程对应位置即可;或在本工程 Terminal 执行 `gradle wrapper --gradle-version 8.7`。
 
 安装到真机 → 首次发送消息会触发模型从 assets 拷贝到内部存储(约 400MB,耗时十几秒,
 Logcat 可见进度)→ 之后流式对话。
@@ -125,7 +124,8 @@ python llmexport.py --path /path/to/Qwen2-0.5B-Instruct --export mnn --quant_bit
 - [x] 工程骨架与全部代码生成(T1-T7)
 - [x] JNI 命名一致性静态校验
 - [x] 日志埋点与异常加固(T8/T9 代码就位)
-- [ ] 编译验证:需 SDK/NDK + MNN 三件套就位(见「依赖就位」)
+- [x] MNN 三件套:头文件 + so 已入库,模型待下载(见「模型获取」)
+- [ ] 编译验证:模型到位后跑 `assembleDebug`(CMake 需 so,已就位)
 - [ ] 真机端到端验证 + 演示录屏
 
 ## License

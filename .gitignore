@@ -19,8 +19,5 @@ captures/
 # 大模型文件不入库(体积 ~400MB,建议 git-lfs 或单独分发,见 README「模型获取」)
 app/src/main/assets/models/qwen2-0.5b-instruct/*
 !app/src/main/assets/models/qwen2-0.5b-instruct/README.md
-# MNN 预编译 so 不入库(体积大且属于第三方二进制,见 README「依赖就位」)
-app/src/main/jniLibs/**/*.so
-# MNN 源码头文件由用户自行放置,不入库
-app/src/main/cpp/mnn/include/*
-!app/src/main/cpp/mnn/include/README.md
+# 临时工作目录(本会话下载解压的中间产物)
+.tmp/

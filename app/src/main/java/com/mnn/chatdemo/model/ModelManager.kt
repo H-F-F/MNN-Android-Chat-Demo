@@ -17,7 +17,8 @@ import java.io.File
  * 1. 首次使用时把 assets/models/qwen2-0.5b-instruct/ 整个目录拷贝到内部存储
  *    filesDir/models/qwen2-0.5b-instruct/;
  * 2. 校验关键文件(config.json / llm.mnn / tokenizer.mtok)存在;
- * 3. 返回 config.json 的绝对路径,供 native 层 Llm::createLLM(configPath) 使用。
+ * 3. 返回模型【目录】的绝对路径,供 native 层 Llm::createLLM(modelDir) 使用
+ *    (MNN 3.5+ 的 createLLM 接收模型目录,内部读取 config.json)。
  *
  * 懒加载:仅首次推理触发拷贝,不阻塞 Application 启动。
  */
@@ -37,8 +38,8 @@ object ModelManager {
     private const val ASSET_MODEL_DIR = "models/$MODEL_DIR_NAME"
 
     /**
-     * 确保模型就绪并返回 config.json 绝对路径。
-     * @return Success(config.json 绝对路径) / Failure(可展示的错误信息)
+     * 确保模型就绪并返回模型目录绝对路径。
+     * @return Success(模型目录绝对路径) / Failure(可展示的错误信息)
      */
     fun ensureModel(context: Context): Result<String> {
         val startNanos = System.nanoTime()
@@ -47,9 +48,9 @@ object ModelManager {
             copyIfNeeded(context.assets, destDir)
             verify(destDir)?.let { return Result.Failure(message = it) }
 
-            val configPath = File(destDir, CONFIG_FILE).absolutePath
-            Logger.logElapsed(TAG, startNanos, "模型就绪: $configPath")
-            Result.Success(configPath)
+            val modelDir = destDir.absolutePath
+            Logger.logElapsed(TAG, startNanos, "模型就绪: $modelDir")
+            Result.Success(modelDir)
         } catch (e: Exception) {
             Logger.e(TAG, "模型准备失败", e)
             Result.Failure(e, "模型准备失败: ${e.message ?: "未知错误"}")
