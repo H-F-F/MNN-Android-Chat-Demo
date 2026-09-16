@@ -70,7 +70,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 阻塞推理放到 Default 线程;native 线程逐 token 回调,内部切回主线程更新 UI
                 val fullResponse = withContext(Dispatchers.Default) {
                     engine.nativeReset(handle)
+                    val repeatWindow = 24
+                    var repeatHits = 0
+                    val raw = StringBuilder()
                     engine.nativeGenerate(handle, text) { token ->
+                        // 重复检测:尾部 24 字符与再往前 24 字符完全相同,判定为复读,连中 2 次立即停止
+                        raw.append(token)
+                        val len = raw.length
+                        if (len > repeatWindow * 2) {
+                            val tail = raw.substring(len - repeatWindow)
+                            val prev = raw.substring(len - repeatWindow * 2, len - repeatWindow)
+                            if (tail == prev) {
+                                repeatHits++
+                                if (repeatHits >= 2) {
+                                    engine.nativeStop(handle)
+                                }
+                            } else {
+                                repeatHits = 0
+                            }
+                        }
                         // native 回调线程 -> 主线程更新最后一条 assistant 消息
                         viewModelScope.launch {
                             _uiState.update { state ->
@@ -83,6 +101,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     }
+                    raw.toString()
                 }
                 Logger.logElapsed("ChatViewModel", startNanos, "生成完成 len=${fullResponse.length}")
             } catch (e: Exception) {
