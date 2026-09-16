@@ -21,3 +21,6 @@ app/src/main/assets/models/qwen2-0.5b-instruct/*
 !app/src/main/assets/models/qwen2-0.5b-instruct/README.md
 # 临时工作目录(本会话下载解压的中间产物)
 .tmp/
+
+# 构建日志(不入库)
+build_log.txt
