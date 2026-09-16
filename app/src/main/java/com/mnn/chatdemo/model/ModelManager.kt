@@ -49,7 +49,7 @@ object ModelManager {
             Logger.logElapsed(TAG, startNanos, "模型就绪: $modelDir")
             Result.Success(modelDir)
         } catch (e: Exception) {
-            Logger.e(TAG, "模型准备失败", e)
+            Logger.e("[$TAG] 模型准备失败", e)
             Result.Failure(e, "模型准备失败: ${e.message ?: "未知错误"}")
         }
     }
@@ -57,7 +57,7 @@ object ModelManager {
     /** 首次调用时从 assets 整目录拷贝到内部存储;已存在则跳过 */
     private fun copyIfNeeded(assets: AssetManager, destDir: File) {
         if (destDir.exists() && File(destDir, CONFIG_FILE).exists()) {
-            Logger.i(TAG, "模型目录已存在,跳过拷贝: ${destDir.absolutePath}")
+            Logger.i("[$TAG] 模型目录已存在,跳过拷贝: ${destDir.absolutePath}")
             return
         }
 
@@ -68,9 +68,9 @@ object ModelManager {
             )
         }
 
-        Logger.i(TAG, "开始从 assets 拷贝模型目录(文件数: ${assetList.size})")
+        Logger.i("[$TAG] 开始从 assets 拷贝模型目录(文件数: ${assetList.size})")
         copyAssetDir(assets, ASSET_MODEL_DIR, destDir)
-        Logger.i(TAG, "模型目录拷贝完成: ${destDir.absolutePath}")
+        Logger.i("[$TAG] 模型目录拷贝完成: ${destDir.absolutePath}")
     }
 
     /** 递归拷贝 assets 目录(区分文件与子目录) */

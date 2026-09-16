@@ -13,8 +13,8 @@ project(mnnchat LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 本目录为 app/src/main/cpp,向上两级即 app/src/main/jniLibs
-set(MNN_JNI_LIBS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../jniLibs/arm64-v8a)
+# 本目录为 app/src/main/cpp,上一级(main)下即 jniLibs
+set(MNN_JNI_LIBS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/arm64-v8a)
 
 if(NOT EXISTS "${MNN_JNI_LIBS_DIR}/libMNN.so")
     message(FATAL_ERROR

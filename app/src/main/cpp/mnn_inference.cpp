@@ -36,6 +36,9 @@ using MnnLlm = MNN::Transformer::Llm;
 using ChatMessages = MNN::Transformer::ChatMessages;
 using LlmStatus = MNN::Transformer::LlmStatus;
 
+// utf8_stream_processor.hpp 中的类定义在 mls 命名空间(官方代码如此)
+using mls::Utf8StreamProcessor;
+
 namespace {
 
 constexpr const char* kEndMark = "<eop>";

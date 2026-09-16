@@ -36,7 +36,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    /** 一次性错误事件,通过 Snackbar 展示 */
+    /** 一次性错误事件(通过 Snackbar 展示) */
     private val _errorChannel = Channel<String>(Channel.BUFFERED)
     val errorChannel = _errorChannel.receiveAsFlow()
 
@@ -86,7 +86,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 Logger.logElapsed("ChatViewModel", startNanos, "生成完成 len=${fullResponse.length}")
             } catch (e: Exception) {
-                Logger.e("ChatViewModel", "推理失败", e)
+                Logger.e("[ChatViewModel] 推理失败", e)
                 _errorChannel.send(e.message ?: "推理失败")
             } finally {
                 _uiState.update { it.copy(isGenerating = false) }
@@ -109,7 +109,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (handle == 0L) throw IllegalStateException("模型加载失败(native 返回空句柄)")
         modelHandle = handle
         modelLoaded = true
-        Logger.i("ChatViewModel", "模型加载完成 handle=$handle")
+        Logger.i("[ChatViewModel] 模型加载完成 handle=$handle")
         return handle
     }
 
@@ -117,7 +117,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (modelLoaded) {
             try {
                 engine.nativeRelease(modelHandle)
-                Logger.i("ChatViewModel", "MnnEngine released")
+                Logger.i("[ChatViewModel] MnnEngine released")
             } catch (_: Throwable) {
                 // 释放失败不影响进程退出
             }
