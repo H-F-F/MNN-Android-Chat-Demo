@@ -28,7 +28,7 @@
 └─────────────────────────────────────────────────┘
 ```
 
-## 技术亮点(面试可以直接讲)
+## 技术亮点
 
 1. **端侧 LLM 完整链路**:assets 模型目录 → 内部存储拷贝/校验 → `Llm::createLLM(modelDir)`
    → 加载 → 流式生成 → 释放,验证 MNN LLM 在 Android arm64 上的完整工程链路;
@@ -128,7 +128,7 @@ python llmexport.py --path /path/to/Qwen2-0.5B-Instruct --export mnn --quant_bit
 
 把导出目录(含 config.json 的那一层)整体放入 `assets/models/qwen2-0.5b-instruct/`。
 
-## 真机调优记录(面试亮点)
+## 真机调优记录
 
 在 8 核 arm64 中端手机(vivo,Android 14)上实测调优:
 
