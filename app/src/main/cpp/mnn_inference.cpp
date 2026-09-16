@@ -20,6 +20,7 @@
 //
 
 #include <jni.h>
+#include <android/log.h>
 #include <cstdio>
 #include <string>
 #include <atomic>
@@ -31,6 +32,10 @@
 #include "utf8_stream_processor.hpp"
 
 #include <llm/llm.hpp>
+#include <MNN/Interpreter.hpp>
+
+#define DIAG_TAG "MnnChat"
+#define DIAG(...) __android_log_print(ANDROID_LOG_INFO, DIAG_TAG, __VA_ARGS__)
 
 using MnnLlm = MNN::Transformer::Llm;
 using ChatMessages = MNN::Transformer::ChatMessages;
@@ -111,17 +116,39 @@ Java_com_mnn_chatdemo_inference_MnnEngine_nativeLoadModel(JNIEnv* env, jobject /
     env->ReleaseStringUTFChars(modelDir, dirChars);
 
     try {
-        // createLLM 读取模型目录内的 config.json(backend / thread_num / precision 均在文件内)
-        MnnLlm* llm = MnnLlm::createLLM(dir);
+        // 诊断:确认模型文件齐全(缺失时快速定位,不阻塞正式加载)
+        DIAG("[diag] modelDir=%s", dir.c_str());
+        {
+            std::string mnnPath = dir + "/llm.mnn";
+            std::string weightPath = dir + "/llm.mnn.weight";
+            std::string tokPath = dir + "/tokenizer.txt";
+            FILE* fm = fopen(mnnPath.c_str(), "rb");
+            FILE* fw = fopen(weightPath.c_str(), "rb");
+            FILE* ft = fopen(tokPath.c_str(), "rb");
+            if (fm) { fseek(fm, 0, SEEK_END); DIAG("[diag] llm.mnn size=%ld", (long)ftell(fm)); fclose(fm); }
+            if (fw) { fseek(fw, 0, SEEK_END); DIAG("[diag] llm.mnn.weight size=%ld", (long)ftell(fw)); fclose(fw); }
+            if (ft) { fseek(ft, 0, SEEK_END); DIAG("[diag] tokenizer.txt size=%ld", (long)ftell(ft)); fclose(ft); }
+            if (!fm) DIAG("[diag] !!! llm.mnn 缺失");
+            if (!fw) DIAG("[diag] !!! llm.mnn.weight 缺失");
+            if (!ft) DIAG("[diag] !!! tokenizer.txt 缺失");
+        }
+
+        // createLLM 需传入 config.json 完整路径(引擎以文件所在目录为 base_dir,
+        // 拼接 tokenizer/llm.mnn 等相对路径;传裸目录会导致目录后缺斜杠、路径拼错)
+        std::string configPath = dir + "/config.json";
+        MnnLlm* llm = MnnLlm::createLLM(configPath);
+        DIAG("[diag] createLLM -> %s", llm ? "OK" : "NULL");
         if (llm == nullptr) {
             ThrowIllegalState(env, "createLLM 失败: 请检查模型目录与 config.json 是否完整");
             return 0L;
         }
         if (!llm->load()) {
+            DIAG("[diag] load() 返回 false");
             ThrowIllegalState(env, "模型加载失败(load() 返回 false): 模型文件缺失/损坏或内存不足");
             delete llm;
             return 0L;
         }
+        DIAG("[diag] load() OK");
         return reinterpret_cast<jlong>(llm);
     } catch (const std::exception& e) {
         ThrowIllegalState(env, std::string("nativeLoadModel 异常: ") + e.what());

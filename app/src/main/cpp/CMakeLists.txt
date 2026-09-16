@@ -33,5 +33,5 @@ add_library(mnnchat SHARED mnn_inference.cpp)
 # MNN 头文件目录(MNN 仓库 include/ + transformers/llm/engine/include/ 内容拷入)
 target_include_directories(mnnchat PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/mnn/include)
 
-# 链接 MNN 推理库;Android 打包时 libMNN.so 随 jniLibs 一起进 APK
-target_link_libraries(mnnchat MNN)
+# 链接 MNN 推理库与 Android log 库(JNI 诊断日志用);libMNN.so 随 jniLibs 一起进 APK
+target_link_libraries(mnnchat MNN log)
