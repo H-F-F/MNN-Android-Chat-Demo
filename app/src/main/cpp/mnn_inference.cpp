@@ -47,8 +47,8 @@ using mls::Utf8StreamProcessor;
 namespace {
 
 constexpr const char* kEndMark = "<eop>";
-constexpr int kMaxNewTokens = 512;
-constexpr const char* kSystemPrompt = "You are a helpful assistant.";
+constexpr int kMaxNewTokens = 128;
+constexpr const char* kSystemPrompt = "你是AI助手,请简洁准确回答。";
 
 // 停止标志:nativeStop() 可被任意线程调用,生成循环轮询该标志提前退出
 std::atomic<bool> g_stopRequested{false};
@@ -142,6 +142,14 @@ Java_com_mnn_chatdemo_inference_MnnEngine_nativeLoadModel(JNIEnv* env, jobject /
             ThrowIllegalState(env, "createLLM 失败: 请检查模型目录与 config.json 是否完整");
             return 0L;
         }
+        // 采样参数调优: 默认 repetition_penalty=1.0(无重复惩罚)会导致小模型
+        // 陷入"重复死循环";这里注入 repetition/ngram 多重惩罚 + 适度随机性。
+        // 与官方 MnnLlmChat 一致,通过 set_config 在 load() 前注入。
+        llm->set_config(
+            R"({"temperature":0.7,"top_p":0.9,"top_k":40,)"
+            R"("repetition_penalty":1.3,"presence_penalty":0.1,"frequency_penalty":0.1,)"
+            R"("n_gram":4,"ngram_factor":1.2,"max_new_tokens":128})");
+        DIAG("[diag] effective config: %s", llm->dump_config().c_str());
         if (!llm->load()) {
             DIAG("[diag] load() 返回 false");
             ThrowIllegalState(env, "模型加载失败(load() 返回 false): 模型文件缺失/损坏或内存不足");
@@ -207,6 +215,9 @@ Java_com_mnn_chatdemo_inference_MnnEngine_nativeGenerate(JNIEnv* env, jobject /*
                 pending_eop = true;  // <eop> 不追加文本也不回调
                 return;
             }
+            // 诊断:确认回调粒度与触发时机
+            __android_log_print(ANDROID_LOG_INFO, "MnnChat", "[diag] cb len=%zu chunk=%.40s",
+                                chunk.size(), chunk.c_str());
             response_buffer << chunk;
             jstring jDelta = env->NewStringUTF(chunk.c_str());
             if (jDelta != nullptr) {
@@ -220,7 +231,9 @@ Java_com_mnn_chatdemo_inference_MnnEngine_nativeGenerate(JNIEnv* env, jobject /*
 
         // 3) prefill:只处理输入,不解码;结束后逐 token 解码
         EnsureRunningState(llm);
+        __android_log_print(ANDROID_LOG_INFO, "MnnChat", "[diag] enter response() prefill");
         llm->response(history, &output_ostream, kEndMark, 0);
+        __android_log_print(ANDROID_LOG_INFO, "MnnChat", "[diag] exit response() size=%d", current_size);
         while (!g_stopRequested.load() && !generate_end && current_size < kMaxNewTokens) {
             llm->generate(1);
             current_size++;
@@ -228,6 +241,9 @@ Java_com_mnn_chatdemo_inference_MnnEngine_nativeGenerate(JNIEnv* env, jobject /*
                 generate_end = true;
             }
         }
+        __android_log_print(ANDROID_LOG_INFO, "MnnChat",
+                            "[diag] loop end stop=%d end=%d size=%d", g_stopRequested.load(),
+                            generate_end, current_size);
     } catch (const std::exception& e) {
         ThrowIllegalState(env, std::string("nativeGenerate 异常: ") + e.what());
         return nullptr;
