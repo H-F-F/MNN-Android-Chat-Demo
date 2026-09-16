@@ -10,13 +10,13 @@ import java.io.File
  * 模型文件管理层。
  *
  * MNN LLM 的模型是一个【目录】而非单个 .mnn 文件,llmexport 导出产物包括:
- *   config.json / llm.mnn / llm.mnn.weight / tokenizer.mtok / llm_config.json
- *   (8B 以下模型默认 tie-embedding,通常无 embeddings_bf16.bin)
+ *   config.json / llm.mnn / llm.mnn.weight / (tokenizer.mtok 或 tokenizer.txt)
+ *   / llm_config.json / (可选) embeddings_bf16.bin
  *
  * 职责:
  * 1. 首次使用时把 assets/models/qwen2-0.5b-instruct/ 整个目录拷贝到内部存储
  *    filesDir/models/qwen2-0.5b-instruct/;
- * 2. 校验关键文件(config.json / llm.mnn / tokenizer.mtok)存在;
+ * 2. 校验关键文件存在(config.json + llm.mnn 必需;分词文件 mtok/txt 二选一);
  * 3. 返回模型【目录】的绝对路径,供 native 层 Llm::createLLM(modelDir) 使用
  *    (MNN 3.5+ 的 createLLM 接收模型目录,内部读取 config.json)。
  *
@@ -31,9 +31,6 @@ object ModelManager {
 
     /** MNN LLM 推理入口配置文件 */
     const val CONFIG_FILE = "config.json"
-
-    /** 关键文件清单:缺失任一文件即认为模型未就绪 */
-    private val REQUIRED_FILES = listOf(CONFIG_FILE, "llm.mnn", "tokenizer.mtok")
 
     private const val ASSET_MODEL_DIR = "models/$MODEL_DIR_NAME"
 
@@ -93,9 +90,15 @@ object ModelManager {
         }
     }
 
-    /** 校验关键文件,返回缺失提示;全部存在返回 null */
+    /** 关键文件校验:config.json + llm.mnn 必需;分词文件 mtok/txt 二选一 */
     private fun verify(destDir: File): String? {
-        val missing = REQUIRED_FILES.filter { !File(destDir, it).exists() }
+        val missing = mutableListOf<String>()
+        for (name in listOf(CONFIG_FILE, "llm.mnn")) {
+            if (!File(destDir, name).exists()) missing.add(name)
+        }
+        val hasTokenizer =
+            File(destDir, "tokenizer.mtok").exists() || File(destDir, "tokenizer.txt").exists()
+        if (!hasTokenizer) missing.add("tokenizer.mtok / tokenizer.txt")
         return if (missing.isNotEmpty()) {
             "模型目录缺少关键文件: ${missing.joinToString()} (目录: ${destDir.absolutePath})"
         } else {
