@@ -69,7 +69,7 @@ app/src/main/
 |---|---|---|
 | MNN 头文件 | `cpp/mnn/include/`(`MNN/` 与 `llm/` 目录) | ✅ 已随仓库提交 |
 | MNN so | `jniLibs/arm64-v8a/libMNN.so` | ✅ 已随仓库提交(官方 MNNChat App 同款,LLM 内置) |
-| 模型目录 | `assets/models/qwen2-0.5b-instruct/` | ⬜ **需自行下载**(体积 ~400MB,不入库) |
+| 模型目录 | `assets/models/qwen2-0.5b-instruct/` | ⬜ **需自行下载**(体积 ~532MB,不入库,见下方「模型获取」) |
 
 > so 与头文件已就位:`libMNN.so` 取自官方 MNNChat App(引擎 3.5.x,`-DMNN_BUILD_LLM=ON`,
 > LLM 模块内置其中,无需 `libllm.so`),头文件取自 MNN 仓库 `include/` 与
@@ -99,6 +99,25 @@ Logcat 可见进度)→ 之后流式对话。
 
 ## 模型获取
 
+**推荐:直接下载官方预转换模型(ModelScope,已验证可直连)**
+
+```
+MNN/Qwen2-0.5B-Instruct-MNN
+```
+
+单文件下载地址模板:
+
+```
+https://modelscope.cn/api/v1/models/MNN/Qwen2-0.5B-Instruct-MNN/repo?Revision=master&FilePath=<文件名>
+```
+
+需要 8 个文件:`config.json`、`configuration.json`、`llm_config.json`、`tokenizer.txt`、
+`llm.mnn`、`llm.mnn.json`、`llm.mnn.weight`、`embeddings_bf16.bin`。
+大文件(`llm.mnn.weight` 等)返回 302 跳转,需解析响应中的 `href` 再下载。
+模型目录内另有 README 说明。
+
+**备选:自行转换**
+
 ```bash
 git lfs install
 git clone https://www.modelscope.cn/qwen/Qwen2-0.5B-Instruct.git
@@ -108,7 +127,20 @@ python llmexport.py --path /path/to/Qwen2-0.5B-Instruct --export mnn --quant_bit
 ```
 
 把导出目录(含 config.json 的那一层)整体放入 `assets/models/qwen2-0.5b-instruct/`。
-也可从 ModelScope/HuggingFace 下载 mnn-llm 预转换模型。
+
+## 真机调优记录(面试亮点)
+
+在 8 核 arm64 中端手机(vivo,Android 14)上实测调优:
+
+| 项 | 结论 |
+| --- | --- |
+| 模型选型 | **0.5B 可用**(热后 1~6 秒/条);1.5B 内容更稳但 CPU 仅 1~2 token/s,单条 2 分钟+,物理不可用。端侧"速度 vs 质量"权衡的实证 |
+| 采样参数 | 默认参数下 0.5B 严重复读死循环;收敛为 `temperature 0.7 / top_k 40 / top_p 0.9 / repetition_penalty 1.3 / n_gram 4 / ngram_factor 1.2` 后复读大幅缓解 |
+| 系统提示词 | **长指令会让 0.5B 带偏**(吐提示词、答非所问);极简提示词(`你是AI助手,请简洁准确回答。`)恢复稳定 |
+| 重复兜底 | Kotlin 层文本窗口(24 字符)检测尾部复读,连中 2 次调 `nativeStop` 掐断生成;`max_new_tokens=128` 双保险 |
+| 长度上限 | C++ `kMaxNewTokens=128`:复读最多重复一小段,正常短问答不受影响 |
+| JNI 语义 | MNN 3.5+ 的 `Llm::createLLM` 需传 **config.json 完整路径**(以文件所在目录为 base_dir);传裸目录会拼出缺斜杠路径导致 `tokenizer file not found` |
+| 线程模型 | 推理在 `Dispatchers.Default`,逐 token JNI 回调切主线程更新 UI,全程无 ANR |
 
 ## 已知边界与 TODO
 
@@ -121,12 +153,13 @@ python llmexport.py --path /path/to/Qwen2-0.5B-Instruct --export mnn --quant_bit
 
 ## 验证状态
 
-- [x] 工程骨架与全部代码生成(T1-T7)
+- [x] 工程骨架与全部代码生成
 - [x] JNI 命名一致性静态校验
-- [x] 日志埋点与异常加固(T8/T9 代码就位)
-- [x] MNN 三件套:头文件 + so 已入库,模型待下载(见「模型获取」)
-- [ ] 编译验证:模型到位后跑 `assembleDebug`(CMake 需 so,已就位)
-- [ ] 真机端到端验证 + 演示录屏
+- [x] MNN 三件套:头文件 + so 已入库,模型按「模型获取」下载
+- [x] `assembleDebug` 全链路编译通过(AGP 8.2.2 / Kotlin 1.9.22 / Gradle 8.7 / NDK 25)
+- [x] **真机端到端验证**:0.5B 加载成功、流式对话、数学题 1 秒内答对、复读被检测掐断
+- [ ] 演示录屏(GitHub README 可放 GIF)
+- [ ] iOS 端(可选扩展)
 
 ## License
 

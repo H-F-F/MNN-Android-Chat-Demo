@@ -1,37 +1,46 @@
-# 模型说明
+# 模型文件说明
 
-本目录存放 **Qwen2-0.5B-Instruct 的 MNN 预转换模型**(官方 MNN 团队转换,已量化,开箱即用)。
+本目录下的模型文件体积较大(约 532MB),**已被 .gitignore 忽略,不会入库**。
+克隆仓库后需要手动下载模型才能运行。
 
-> 注意:模型是一个【目录】,不是单个 .mnn 文件;本目录被 .gitignore 排除,
-> 不入库(体积约 532MB),下载后需重新安装 App(首次启动会把模型从 assets
-> 拷贝到内部存储)。
+## 模型信息
 
-## 文件清单
+| 项 | 值 |
+| --- | --- |
+| 模型 | Qwen2-0.5B-Instruct(MNN 预转换版) |
+| 来源 | ModelScope: `MNN/Qwen2-0.5B-Instruct-MNN` |
+| 转换版本 | MNN 3.0.2 |
+| 量化 | 权重 INT8(内存 low,精度 low) |
+| 用途 | 端侧离线对话演示(手机 CPU 可实时推理) |
+
+## 下载方式
+
+将以下文件放入本目录(文件名必须一致):
 
 ```
-qwen2-0.5b-instruct/
-├── config.json          ← 推理入口(backend_type=cpu / thread_num=4 / precision=low / memory=low)
-├── configuration.json   ← 模型元信息
-├── llm_config.json      ← 结构配置(hidden_size=896 / 24 层 / Qwen2 chat 模板)
-├── llm.mnn              ← 计算图
-├── llm.mnn.json         ← 算子元信息
-├── llm.mnn.weight       ← 量化权重
-├── embeddings_bf16.bin  ← 词嵌入(bf16)
-└── tokenizer.txt        ← 分词表(旧版文本格式;新版模型为 tokenizer.mtok,二者均可)
+config.json
+configuration.json
+llm_config.json
+tokenizer.txt
+llm.mnn
+llm.mnn.json
+llm.mnn.weight
+embeddings_bf16.bin
 ```
 
-## 来源
+ModelScope 单文件下载地址模板:
 
-- 模型仓:ModelScope `MNN/Qwen2-0.5B-Instruct-MNN`
-  https://modelscope.cn/models/MNN/Qwen2-0.5B-Instruct-MNN
-- 获取命令(任一):
-  ```
-  git lfs install
-  git clone https://modelscope.cn/models/MNN/Qwen2-0.5B-Instruct-MNN.git
-  ```
-  把 clone 出的目录内容(含 config.json 的一层)放入本目录。
+```
+https://modelscope.cn/api/v1/models/MNN/Qwen2-0.5B-Instruct-MNN/repo?Revision=master&FilePath=<文件名>
+```
 
-## 注意
+大文件(如 `llm.mnn.weight`)会返回 302 跳转,需解析响应中的 `href` 再下载。
 
-- App 对关键文件有存在性校验:config.json + llm.mnn 必需,分词文件 mtok/txt 二选一;
-  缺失时 Snackbar 提示,不会崩溃。
+## 为什么选 0.5B
+
+在这台中端手机(8 核 CPU)上实测:
+
+- **Qwen2-0.5B**:首次加载约 20s,热后单条回复 1~6 秒 —— 可用
+- **Qwen2-1.5B**:内容更稳定,但 CPU 仅 1~2 token/秒,单条回复 2 分钟+ —— 物理不可用
+
+这是端侧推理"速度 vs 质量"的经典权衡,详见项目 README 的调优记录。
